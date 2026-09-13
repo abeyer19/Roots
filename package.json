@@ -1,0 +1,19 @@
+{
+  "name": "python-dependency-graph",
+  "displayName": "Python Dependency Visualizer",
+  "description": "Dynamic Tony Stark holographic dependency graph",
+  "version": "0.2.0",
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "main": "./extension.js",
+  "activationEvents": [],
+  "contributes": {
+    "commands": [
+      {
+        "command": "pyGraph.visualize",
+        "title": "Show Holographic Architecture Graph"
+      }
+    ]
+  }
+}
