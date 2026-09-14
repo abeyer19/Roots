@@ -23,18 +23,12 @@
     }
 
     body { margin: 0; overflow: hidden; background-color: var(--bg-color); color: var(--text-main); font-family: monospace; transition: background 0.3s; }
-    #viewport { 
-      width: 100vw; 
-      height: 100vh; 
-      position: absolute; 
-      top: 0; 
-      left: 0; 
-      z-index: 1; 
-    }
+    #viewport { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; z-index: 1; }
     
     .glow { filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.4)); }
     .node-base { fill: var(--node-base); stroke: #e0e0e0; stroke-width: 1.5px; cursor: pointer; transition: fill 0.3s; }
     .node-active { fill: #ff2a5f !important; stroke: #fff !important; filter: drop-shadow(0 0 8px rgba(255, 42, 95, 0.8)); }
+    /* Golden cursor tracking strictly protected */
     .node-editor-active { fill: #ffb703 !important; stroke: #fff !important; filter: drop-shadow(0 0 10px rgba(255, 183, 3, 0.9)); }
     
     .link-line { stroke: var(--link-idle); stroke-width: 1.5px; fill: none; transition: stroke 0.2s; }
@@ -46,11 +40,8 @@
     }
 
     .panel-box {
-      position: absolute; 
-      padding: 15px; 
-      background: var(--panel-bg);
-      border: 1px solid var(--panel-border);
-      z-index: 10; 
+      position: absolute; padding: 15px; background: var(--panel-bg);
+      border: 1px solid var(--panel-border); z-index: 10;
     }
     #hud-panel { top: 16px; left: 16px; width: 350px; border-left: 4px solid #e0e0e0; pointer-events: auto; }
     #legend-panel { top: 16px; right: 16px; width: 200px; border-right: 4px solid #e0e0e0; pointer-events: none; display: none; }
@@ -99,7 +90,6 @@
   </div>
 
   <svg id="viewport">
-    <!-- Transparent rect catches background clicks/dblclicks reliably -->
     <rect id="bg-rect" width="100%" height="100%" fill="transparent"></rect>
     <defs>
       <marker id="arrowhead" viewBox="0 -5 10 10" refX="8" refY="0" orient="auto" markerWidth="6" markerHeight="6">
@@ -132,7 +122,6 @@
     
     const zoomBehavior = d3.zoom().scaleExtent([0.1, 4]).on("zoom", (e) => zoomGroup.attr("transform", e.transform));
     svg.call(zoomBehavior);
-    // Disable D3's default double-click zoom so we can use it to return to architecture
     svg.on("dblclick.zoom", null); 
 
     bgRect.on("dblclick", () => {
@@ -161,6 +150,9 @@
     let traceMode = 'DEEP'; 
     let theme = 'DARK'; 
     
+    // Persistent Tooltip Memory Dictionary
+    let tooltipState = {};
+    
     let simulation;
     const safeId = (str) => str.replace(/[^a-zA-Z0-9]/g, '_');
 
@@ -175,7 +167,6 @@
       theme = theme === 'DARK' ? 'MAVEN' : 'DARK';
       d3.select(document.body).attr("data-theme", theme === 'MAVEN' ? 'maven' : 'dark');
       d3.select(this).text(`[ THEME: ${theme} ]`);
-      // Re-apply to ensure CSS var overrides empty inline styles
       applyColors();
       if(simulation) simulation.alpha(0.1).restart();
     });
@@ -226,21 +217,45 @@
       activeGraphData.nodes.forEach(n => n.isOrphan = degreeMap.get(n.id) === 0);
     }
 
+    // Refactored to map method-to-method interactions directly
     function generateFileSubGraph(fileData) {
       const subNodes = [];
       const subLinks = [];
+      const nodeMap = new Set();
       
+      const addNode = (id, label, className, data) => {
+         if (!nodeMap.has(id)) {
+             subNodes.push({ id, label, folder: className || 'None', isOrphan: false, type: className ? 'method' : 'function', ...data });
+             nodeMap.add(id);
+         }
+      };
+
       Object.keys(fileData.classes).forEach(clsName => {
-        subNodes.push({ id: `cls_${clsName}`, label: clsName, folder: clsName, isOrphan: false, type: 'class', ...fileData.classes[clsName] });
-        fileData.classes[clsName].methods.forEach(m => {
-          subNodes.push({ id: `mth_${clsName}_${m.name}`, label: m.name, folder: clsName, isOrphan: false, type: 'method', ...m });
-          subLinks.push({ source: `cls_${clsName}`, target: `mth_${clsName}_${m.name}` });
-        });
+        fileData.classes[clsName].methods.forEach(m => addNode(`mth_${m.name}`, m.name, clsName, m));
       });
 
-      fileData.functions.forEach(f => {
-        subNodes.push({ id: `func_${f.name}`, label: f.name, folder: 'global', isOrphan: true, type: 'function', ...f });
+      fileData.functions.forEach(f => addNode(`func_${f.name}`, f.name, 'None', f));
+
+      // Resolve internal method calls extracted by the AST parser
+      subNodes.forEach(sourceNode => {
+          if (sourceNode.calls) {
+              sourceNode.calls.forEach(calledName => {
+                  const targetNode = subNodes.find(n => n.label === calledName);
+                  if (targetNode && targetNode.id !== sourceNode.id) {
+                      subLinks.push({ source: sourceNode.id, target: targetNode.id });
+                  }
+              });
+          }
       });
+
+      // Calculate orphans strictly for this file layer
+      const degreeMap = new Map();
+      subNodes.forEach(n => degreeMap.set(n.id, 0));
+      subLinks.forEach(l => {
+          degreeMap.set(l.source, degreeMap.get(l.source) + 1);
+          degreeMap.set(l.target, degreeMap.get(l.target) + 1);
+      });
+      subNodes.forEach(n => n.isOrphan = degreeMap.get(n.id) === 0);
 
       return { nodes: subNodes, links: subLinks };
     }
@@ -265,6 +280,10 @@
       const legend = d3.select("#legend-panel");
       if (!colorMode) { legend.style("display", "none"); return; }
       legend.style("display", "block");
+      
+      // Toggle the legend title depending on the depth layer
+      d3.select(".legend-title-main").text(currentLayer === 'ARCHITECTURE' ? "DIRECTORY MAP" : "CLASS MAP");
+      
       const content = d3.select("#legend-content");
       content.selectAll("*").remove();
 
@@ -404,7 +423,6 @@
     }
 
     function applyColors() {
-      // By setting fill to null when colorMode is off, the CSS variable takes over completely
       d3.selectAll(".node-base").style("fill", d => colorMode ? colorScale(d.folder) : null);
     }
 
@@ -427,8 +445,12 @@
       if (currentLayer === 'ARCHITECTURE') {
         if (Object.keys(d.classes).length > 0) {
           for (let [cls, clsData] of Object.entries(d.classes)) {
+            const stateKey = `${d.id}-${cls}`;
+            // Use state memory to check if dropdown should be collapsed. Defaults to open (true).
+            const isOpen = tooltipState[stateKey] !== false ? 'open' : '';
+            
             content += `
-              <details open>
+              <details ${isOpen} data-key="${stateKey}">
                 <summary class="legend-class">class ${cls}</summary>
                 <div style="padding-left:12px; margin-bottom:8px;">
                   ${clsData.methods.map(m => `<div class="legend-method">def ${m.name}(${m.args.join(', ')}) -> ${m.returns}</div>`).join('')}
@@ -442,17 +464,19 @@
             content += `<div class="legend-func">def ${f.name}(${f.args.join(', ')}) -> ${f.returns}</div>`;
           });
         }
-      } 
-      else {
-        if (d.type === 'class') {
-           content += `<div>Class Wrapper</div>`;
-        } else {
-           content += `<div class="legend-func">Args: (${d.args.join(', ')})<br>Returns: ${d.returns}</div>`;
-        }
+      } else {
+         content += `<div class="legend-func">Args: (${d.args.join(', ')})<br>Returns: ${d.returns}</div>`;
       }
 
       tooltip.html(content).style("visibility", "visible");
       if (event) tooltip.style("left", (event.pageX + 20) + "px").style("top", (event.pageY - 20) + "px");
+
+      // Attach event listeners to the newly rendered details elements to save toggle states
+      tooltip.node().querySelectorAll("details").forEach(det => {
+        det.addEventListener("toggle", (e) => {
+          tooltipState[e.target.getAttribute("data-key")] = e.target.open;
+        });
+      });
     }
 
     function highlightLineage(startNodeId) {
@@ -460,8 +484,6 @@
       const visitedNodes = new Set([startNodeId]), visitedLinks = new Set();
       
       if (traceMode === 'DIRECT') {
-        // Direct Importers (Looks for files that imported this selected node)
-        // Link logic: target = importer, source = imported. Find where source == startNodeId
         const importers = activeGraphData.links.filter(l => (l.source.id || l.source) === startNodeId);
         importers.forEach(link => {
           const targetId = link.target.id || link.target;
@@ -469,8 +491,6 @@
           visitedNodes.add(targetId);
         });
       } else {
-        // Deep Dependencies (Looks down the chain for files this node relies on)
-        // Link logic: Find where target == curr
         const queue = [startNodeId];
         while (queue.length > 0) {
           const curr = queue.shift();

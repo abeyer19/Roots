@@ -23,13 +23,25 @@ def parse_returns(node):
     except Exception:
         return "None"
 
+def extract_calls(node):
+    """Walks the AST of a function/method to find all function calls within it."""
+    calls = []
+    for child in ast.walk(node):
+        if isinstance(child, ast.Call):
+            if hasattr(child.func, 'id'):
+                calls.append(child.func.id)
+            elif hasattr(child.func, 'attr'):
+                calls.append(child.func.attr)
+    return list(set(calls)) # Deduplicate
+
 def get_func_info(node):
     return {
         "name": node.name,
         "args": parse_args(node),
         "returns": parse_returns(node),
         "lineno": getattr(node, "lineno", 0),
-        "end_lineno": getattr(node, "end_lineno", getattr(node, "lineno", 0))
+        "end_lineno": getattr(node, "end_lineno", getattr(node, "lineno", 0)),
+        "calls": extract_calls(node)
     }
 
 def analyze_workspace(workspace_root):
@@ -117,7 +129,6 @@ def analyze_workspace(workspace_root):
     for e in edges:
         in_degrees[e["target"]] = in_degrees.get(e["target"], 0) + 1
     
-    # Try to map entry point to Roots.py
     root_file = next((n["id"] for n in nodes if "Roots" in n["label"]), None) 
     if not root_file:
         sorted_roots = sorted(nodes, key=lambda n: in_degrees.get(n["id"], 0), reverse=True)

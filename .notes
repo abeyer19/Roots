@@ -1,4 +1,2 @@
 TODO:
-- back button doesn't work when you drill down, then trying to double click anywhere doesn't do anything - should take you back to the first Dir/File level
-- node colors for maven is still black and not the new color scheme
-- DEEP DEPENDENCIES is fine, but DIRECT IMPORTERS is wrong, it needs to go from selected node and show you what other nodes import it directly, it currently shows what direct imports is made to the current node so it is kind of reversed.
+- 
