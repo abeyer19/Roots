@@ -4,81 +4,106 @@
   <meta charset="UTF-8" />
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <style>
-    /* Monochrome Military UI Theme */
-    body { margin: 0; overflow: hidden; background-color: #030406; color: #d4d4d4; font-family: monospace; }
-    #viewport { width: 100vw; height: 100vh; }
+    :root {
+      --bg-color: #030406;
+      --text-main: #d4d4d4;
+      --link-idle: rgba(255, 255, 255, 0.15);
+      --panel-bg: rgba(5, 7, 10, 0.9);
+      --panel-border: rgba(255, 255, 255, 0.2);
+      --node-base: #0a0a0c;
+    }
+    
+    [data-theme="maven"] {
+      --bg-color: #0d1218;
+      --text-main: #b7cae6;
+      --link-idle: #346488;
+      --panel-bg: #2c3746;
+      --panel-border: #346488;
+      --node-base: #1a222d;
+    }
+
+    body { margin: 0; overflow: hidden; background-color: var(--bg-color); color: var(--text-main); font-family: monospace; transition: background 0.3s; }
+    #viewport { 
+      width: 100vw; 
+      height: 100vh; 
+      position: absolute; 
+      top: 0; 
+      left: 0; 
+      z-index: 1; 
+    }
     
     .glow { filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.4)); }
-    .node-base { fill: #0a0a0c; stroke: #e0e0e0; stroke-width: 1.5px; cursor: pointer; transition: fill 0.3s; }
+    .node-base { fill: var(--node-base); stroke: #e0e0e0; stroke-width: 1.5px; cursor: pointer; transition: fill 0.3s; }
     .node-active { fill: #ff2a5f !important; stroke: #fff !important; filter: drop-shadow(0 0 8px rgba(255, 42, 95, 0.8)); }
     .node-editor-active { fill: #ffb703 !important; stroke: #fff !important; filter: drop-shadow(0 0 10px rgba(255, 183, 3, 0.9)); }
     
-    .link-line { stroke: rgba(255, 255, 255, 0.15); stroke-width: 1.5px; fill: none; transition: stroke 0.2s; }
+    .link-line { stroke: var(--link-idle); stroke-width: 1.5px; fill: none; transition: stroke 0.2s; }
     .link-active { stroke: #ff2a5f; stroke-width: 2.5px; }
     
     .node-label {
-      fill: #e0e0e0;
-      stroke: #030406;
-      stroke-width: 3.5px;
-      paint-order: stroke fill;
-      font-size: 11px;
-      pointer-events: none;
+      fill: #e0e0e0; stroke: var(--bg-color); stroke-width: 4px;
+      paint-order: stroke fill; font-size: 11px; pointer-events: none;
     }
 
-    #hud-panel {
-      position: absolute; top: 16px; left: 16px; width: 350px; padding: 15px;
-      background: rgba(5, 7, 10, 0.9); border: 1px solid rgba(255, 255, 255, 0.2);
-      border-left: 4px solid #e0e0e0; pointer-events: auto;
+    .panel-box {
+      position: absolute; 
+      padding: 15px; 
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      z-index: 10; 
     }
-    
-    #legend-panel {
-      position: absolute; top: 16px; right: 16px; width: 200px; padding: 15px;
-      background: rgba(5, 7, 10, 0.9); border: 1px solid rgba(255, 255, 255, 0.2);
-      border-right: 4px solid #e0e0e0; pointer-events: none; display: none;
-    }
+    #hud-panel { top: 16px; left: 16px; width: 350px; border-left: 4px solid #e0e0e0; pointer-events: auto; }
+    #legend-panel { top: 16px; right: 16px; width: 200px; border-right: 4px solid #e0e0e0; pointer-events: none; display: none; }
 
     #hud-title, .legend-title-main { font-size: 14px; font-weight: bold; color: #fff; margin-bottom: 8px; letter-spacing: 1px; }
     #hud-path { font-size: 12px; color: #ff2a5f; line-height: 1.6; margin-bottom: 12px; }
-    .dim { color: #5a5a5a; }
+    .dim { color: var(--text-main); opacity: 0.6; }
     
-    /* Interactive Toggles - Vertically Stacked */
     .btn-group { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
     .hud-btn {
-      font-size: 10px; color: #888; border: 1px solid #333;
+      font-size: 10px; color: var(--text-main); border: 1px solid var(--panel-border);
       padding: 4px 8px; cursor: pointer; user-select: none; transition: all 0.2s;
     }
     .hud-btn:hover { background: rgba(255, 255, 255, 0.1); color: #fff; border-color: #fff; }
     .btn-active { color: #000; background: #e0e0e0; border-color: #e0e0e0; }
     
     #tooltip {
-      position: absolute; visibility: hidden; background: rgba(3, 4, 6, 0.95);
-      border: 1px solid #e0e0e0; padding: 12px; pointer-events: none; font-size: 12px; z-index: 1000;
+      position: absolute; visibility: hidden; background: var(--panel-bg);
+      border: 1px solid var(--panel-border); padding: 12px; font-size: 12px; z-index: 1000;
+      pointer-events: auto; max-height: 400px; overflow-y: auto; max-width: 400px;
     }
     .legend-title { font-size: 14px; font-weight: bold; color: #fff; margin-bottom: 6px; }
-    .legend-class { color: #e0e0e0; font-weight: bold; margin-top: 6px; }
-    .legend-method { margin-left: 12px; color: #888; }
-    .legend-func { color: #a0a0a0; }
+    .legend-class { color: #e0e0e0; font-weight: bold; cursor: pointer; user-select: none; margin-top: 6px; }
+    .legend-method { margin-left: 12px; color: #888; font-family: monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .legend-func { color: #a0a0a0; font-family: monospace; white-space: nowrap; }
+    
+    details > summary { outline: none; }
+    details > summary::-webkit-details-marker { color: #e0e0e0; }
   </style>
 </head>
 <body>
-  <div id="hud-panel">
+  <div id="hud-panel" class="panel-box">
     <div id="hud-title">SYSTEM ARCHITECTURE</div>
     <div id="hud-path" class="dim">IDLE // AWAITING TARGET</div>
     <div class="btn-group">
-      <div id="color-toggle" class="hud-btn">[ DIR COLOR: OFF ]</div>
+      <div id="theme-toggle" class="hud-btn">[ THEME: DARK ]</div>
+      <div id="color-toggle" class="hud-btn">[ COLOR MAP: OFF ]</div>
       <div id="orphan-toggle" class="hud-btn">[ INVITE ORPHANS: NO ]</div>
+      <div id="trace-toggle" class="hud-btn">[ TRACE: DEEP DEPENDENCIES ]</div>
     </div>
   </div>
   
-  <div id="legend-panel">
+  <div id="legend-panel" class="panel-box">
     <div class="legend-title-main">DIRECTORY MAP</div>
     <div id="legend-content"></div>
   </div>
 
   <svg id="viewport">
+    <!-- Transparent rect catches background clicks/dblclicks reliably -->
+    <rect id="bg-rect" width="100%" height="100%" fill="transparent"></rect>
     <defs>
       <marker id="arrowhead" viewBox="0 -5 10 10" refX="8" refY="0" orient="auto" markerWidth="6" markerHeight="6">
-        <path d="M 0,-5 L 10,0 L 0,5" fill="rgba(255, 255, 255, 0.5)"></path>
+        <path d="M 0,-5 L 10,0 L 0,5" fill="var(--link-idle)"></path>
       </marker>
       <marker id="arrowhead-active" viewBox="0 -5 10 10" refX="8" refY="0" orient="auto" markerWidth="6" markerHeight="6">
         <path d="M 0,-5 L 10,0 L 0,5" fill="#ff2a5f"></path>
@@ -94,63 +119,96 @@
     const svg = d3.select("#viewport");
     const width = window.innerWidth, height = window.innerHeight;
     
+    const bgRect = svg.select("#bg-rect");
     const linkGroup = svg.select("#link-layer");
     const nodeGroup = svg.select("#node-layer");
     const labelGroup = svg.select("#label-layer");
-    
     const tooltip = d3.select("#tooltip");
     
     const zoomGroup = svg.append("g");
     zoomGroup.node().appendChild(linkGroup.node());
     zoomGroup.node().appendChild(nodeGroup.node());
     zoomGroup.node().appendChild(labelGroup.node());
-    svg.call(d3.zoom().scaleExtent([0.1, 4]).on("zoom", (e) => zoomGroup.attr("transform", e.transform)));
+    
+    const zoomBehavior = d3.zoom().scaleExtent([0.1, 4]).on("zoom", (e) => zoomGroup.attr("transform", e.transform));
+    svg.call(zoomBehavior);
+    // Disable D3's default double-click zoom so we can use it to return to architecture
+    svg.on("dblclick.zoom", null); 
 
-    let graphData = { nodes: [], links: [] };
+    bgRect.on("dblclick", () => {
+      if (currentLayer === 'FILE') {
+        currentLayer = 'ARCHITECTURE';
+        lockedNodeId = null;
+        tooltip.style("visibility", "hidden");
+        activeGraphData = mainGraphData;
+        renderMainGraph();
+        updateLegend();
+      }
+    });
+
+    let mainGraphData = { nodes: [], links: [] };
+    let activeGraphData = { nodes: [], links: [] };
+    
+    let currentLayer = 'ARCHITECTURE'; 
     let lockedNodeId = null;
     let hoveredNodeId = null;
     let currentEditorFile = null;
-    let folderCenters = {};
+    let currentEditorLine = null;
     
+    let folderCenters = {};
     let colorMode = false;
     let inviteOrphansMode = false;
+    let traceMode = 'DEEP'; 
+    let theme = 'DARK'; 
     
     let simulation;
     const safeId = (str) => str.replace(/[^a-zA-Z0-9]/g, '_');
 
-    const drabColors = [
-      "#4a5c68", "#5c5a4a", "#684a4a", "#4a6858", 
-      "#584a68", "#40454a", "#68594a", "#38505c"
+    const vividColors = [
+      "#4ca3dd", "#53b56f", "#d86255", "#b77fd1", 
+      "#dd9f4c", "#e264b3", "#6ddbaf", "#c9d156",
+      "#8254c4", "#54c4ae"
     ];
-    const colorScale = d3.scaleOrdinal(drabColors);
+    const colorScale = d3.scaleOrdinal(vividColors);
+
+    d3.select("#theme-toggle").on("click", function() {
+      theme = theme === 'DARK' ? 'MAVEN' : 'DARK';
+      d3.select(document.body).attr("data-theme", theme === 'MAVEN' ? 'maven' : 'dark');
+      d3.select(this).text(`[ THEME: ${theme} ]`);
+      // Re-apply to ensure CSS var overrides empty inline styles
+      applyColors();
+      if(simulation) simulation.alpha(0.1).restart();
+    });
 
     d3.select("#color-toggle").on("click", function() {
       colorMode = !colorMode;
-      d3.select(this)
-        .classed("btn-active", colorMode)
-        .text(colorMode ? "[ DIR COLOR: ON ]" : "[ DIR COLOR: OFF ]");
-      applyColors();
-      updateLegend();
-      updateLegendHighlight();
+      d3.select(this).classed("btn-active", colorMode).text(colorMode ? "[ COLOR MAP: ON ]" : "[ COLOR MAP: OFF ]");
+      applyColors(); updateLegend(); updateLegendHighlight();
     });
 
     d3.select("#orphan-toggle").on("click", function() {
       inviteOrphansMode = !inviteOrphansMode;
-      d3.select(this)
-        .classed("btn-active", inviteOrphansMode)
-        .text(inviteOrphansMode ? "[ INVITE ORPHANS: YES ]" : "[ INVITE ORPHANS: NO ]");
+      d3.select(this).classed("btn-active", inviteOrphansMode).text(inviteOrphansMode ? "[ INVITE ORPHANS: YES ]" : "[ INVITE ORPHANS: NO ]");
       if (simulation) simulation.alpha(0.6).restart();
+    });
+
+    d3.select("#trace-toggle").on("click", function() {
+      traceMode = traceMode === 'DEEP' ? 'DIRECT' : 'DEEP';
+      d3.select(this).text(traceMode === 'DEEP' ? "[ TRACE: DEEP DEPENDENCIES ]" : "[ TRACE: DIRECT IMPORTERS ]");
+      if (lockedNodeId) highlightLineage(lockedNodeId);
     });
 
     window.addEventListener("message", (event) => {
       if (event.data.command === "updateGraph") {
-        graphData = event.data.payload;
-        mapOrphans();
-        renderMainGraph();
-        updateLegend();
-        updateLegendHighlight();
+        mainGraphData = event.data.payload;
+        if (currentLayer === 'ARCHITECTURE') {
+          activeGraphData = mainGraphData;
+          mapOrphans();
+          renderMainGraph();
+        }
       } else if (event.data.command === "activeFileChanged") {
         currentEditorFile = event.data.filename;
+        currentEditorLine = event.data.line;
         applyEditorHighlight();
         updateLegendHighlight();
       }
@@ -158,19 +216,38 @@
 
     function mapOrphans() {
       const degreeMap = new Map();
-      graphData.nodes.forEach(n => degreeMap.set(n.id, 0));
-      graphData.links.forEach(l => {
+      activeGraphData.nodes.forEach(n => degreeMap.set(n.id, 0));
+      activeGraphData.links.forEach(l => {
         const s = l.source.id || l.source;
         const t = l.target.id || l.target;
         degreeMap.set(s, degreeMap.get(s) + 1);
         degreeMap.set(t, degreeMap.get(t) + 1);
       });
-      graphData.nodes.forEach(n => n.isOrphan = degreeMap.get(n.id) === 0);
+      activeGraphData.nodes.forEach(n => n.isOrphan = degreeMap.get(n.id) === 0);
+    }
+
+    function generateFileSubGraph(fileData) {
+      const subNodes = [];
+      const subLinks = [];
+      
+      Object.keys(fileData.classes).forEach(clsName => {
+        subNodes.push({ id: `cls_${clsName}`, label: clsName, folder: clsName, isOrphan: false, type: 'class', ...fileData.classes[clsName] });
+        fileData.classes[clsName].methods.forEach(m => {
+          subNodes.push({ id: `mth_${clsName}_${m.name}`, label: m.name, folder: clsName, isOrphan: false, type: 'method', ...m });
+          subLinks.push({ source: `cls_${clsName}`, target: `mth_${clsName}_${m.name}` });
+        });
+      });
+
+      fileData.functions.forEach(f => {
+        subNodes.push({ id: `func_${f.name}`, label: f.name, folder: 'global', isOrphan: true, type: 'function', ...f });
+      });
+
+      return { nodes: subNodes, links: subLinks };
     }
 
     function forceCluster(alpha) {
-      for (let i = 0; i < graphData.nodes.length; ++i) {
-        const d = graphData.nodes[i];
+      for (let i = 0; i < activeGraphData.nodes.length; ++i) {
+        const d = activeGraphData.nodes[i];
         if (d.isOrphan && !inviteOrphansMode) {
           d.vx -= (d.x - (width * 0.1)) * alpha * 0.1;
           d.vy -= (d.y - (height * 0.9)) * alpha * 0.1;
@@ -186,132 +263,92 @@
 
     function updateLegend() {
       const legend = d3.select("#legend-panel");
-      if (!colorMode) {
-        legend.style("display", "none");
-        return;
-      }
-      
+      if (!colorMode) { legend.style("display", "none"); return; }
       legend.style("display", "block");
       const content = d3.select("#legend-content");
       content.selectAll("*").remove();
 
-      const folders = Array.from(new Set(graphData.nodes.map(n => n.folder))).sort();
-      
+      const folders = Array.from(new Set(activeGraphData.nodes.map(n => n.folder))).sort();
       folders.forEach(f => {
-        const item = content.append("div")
-          .attr("class", "legend-row")
-          .attr("data-folder", f)
-          .style("display", "flex").style("align-items", "center")
-          .style("margin-top", "6px").style("transition", "all 0.3s ease");
-          
-        item.append("div")
-          .style("width", "10px").style("height", "10px")
-          .style("background-color", colorScale(f))
-          .style("margin-right", "8px").style("border-radius", "2px");
-          
-        item.append("div")
-          .attr("class", "legend-text")
-          .style("font-size", "11px").style("color", "#d4d4d4").style("transition", "all 0.3s ease")
-          .text(f);
+        const item = content.append("div").attr("class", "legend-row").attr("data-folder", f).style("display", "flex").style("align-items", "center").style("margin-top", "6px").style("transition", "all 0.3s ease");
+        item.append("div").style("width", "10px").style("height", "10px").style("background-color", colorScale(f)).style("margin-right", "8px").style("border-radius", "2px");
+        item.append("div").attr("class", "legend-text").style("font-size", "11px").style("color", "var(--text-main)").style("transition", "all 0.3s ease").text(f);
       });
     }
 
-    // New Function: Evaluates priority to determine which legend item to highlight
     function updateLegendHighlight() {
       if (!colorMode) return;
-      
       let activeFolder = null;
+      
       if (hoveredNodeId) {
-        const n = graphData.nodes.find(n => n.id === hoveredNodeId);
+        const n = activeGraphData.nodes.find(n => n.id === hoveredNodeId);
         if (n) activeFolder = n.folder;
       } else if (lockedNodeId) {
-        const n = graphData.nodes.find(n => n.id === lockedNodeId);
-        if (n) activeFolder = n.folder;
-      } else if (currentEditorFile) {
-        const n = graphData.nodes.find(n => n.id === currentEditorFile);
+        const n = activeGraphData.nodes.find(n => n.id === lockedNodeId);
         if (n) activeFolder = n.folder;
       }
 
       d3.selectAll(".legend-row").each(function() {
         const row = d3.select(this);
         const folderName = row.attr("data-folder");
-        
         if (activeFolder === null) {
           row.style("opacity", "1").style("filter", "none");
-          row.select(".legend-text").style("color", "#d4d4d4").style("font-weight", "normal");
+          row.select(".legend-text").style("color", "var(--text-main)").style("font-weight", "normal");
         } else if (folderName === activeFolder) {
           row.style("opacity", "1").style("filter", "drop-shadow(0 0 5px rgba(255,255,255,0.4))");
           row.select(".legend-text").style("color", "#fff").style("font-weight", "bold");
         } else {
           row.style("opacity", "0.3").style("filter", "none");
-          row.select(".legend-text").style("color", "#5a5a5a").style("font-weight", "normal");
+          row.select(".legend-text").style("color", "var(--text-main)").style("font-weight", "normal");
         }
       });
     }
 
     function renderMainGraph() {
-      const activeNodes = graphData.nodes.filter(n => !n.isOrphan || inviteOrphansMode);
+      mapOrphans();
+      const activeNodes = activeGraphData.nodes.filter(n => !n.isOrphan || inviteOrphansMode);
       const folders = Array.from(new Set(activeNodes.map(n => n.folder)));
       folders.forEach((f, i) => {
         const angle = (i / folders.length) * 2 * Math.PI;
-        folderCenters[f] = {
-          x: width / 2 + Math.cos(angle) * 250,
-          y: height / 2 + Math.sin(angle) * 250
-        };
+        folderCenters[f] = { x: width / 2 + Math.cos(angle) * 250, y: height / 2 + Math.sin(angle) * 250 };
       });
 
-      graphData.nodes.forEach(n => {
+      activeGraphData.nodes.forEach(n => {
         if (n.x === undefined) {
           const center = (n.isOrphan && !inviteOrphansMode) ? {x: width * 0.1, y: height * 0.9} : folderCenters[n.folder] || {x: width/2, y: height/2};
-          n.x = center.x + (Math.random() * 40 - 20);
-          n.y = center.y + (Math.random() * 40 - 20);
+          n.x = center.x + (Math.random() * 40 - 20); n.y = center.y + (Math.random() * 40 - 20);
         }
       });
 
-      if (!simulation) {
-        simulation = d3.forceSimulation()
-          .force("link", d3.forceLink().id(d => d.id)
-            .distance(d => (d.source.folder === d.target.folder) ? 70 : 250)
-            .strength(d => (d.source.folder === d.target.folder) ? 1.0 : 0.3)
-          )
-          .force("charge", d3.forceManyBody().strength(-400))
-          .force("collide", d3.forceCollide(45))
-          .force("cluster", forceCluster)
-          .force("center", d3.forceCenter(width / 2, height / 2));
-
-        simulation.on("tick", () => {
-          linkGroup.selectAll(".link-line").attr("d", d => {
-            const dx = d.target.x - d.source.x, dy = d.target.y - d.source.y;
-            const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-            const padding = 13; 
-            const sx = d.source.x + (dx * padding / dist), sy = d.source.y + (dy * padding / dist);
-            const tx = d.target.x - (dx * padding / dist), ty = d.target.y - (dy * padding / dist);
-            
-            if (d.source.folder === d.target.folder) {
-              return `M${sx},${sy} L${tx},${ty}`; 
-            } else {
-              const dr = dist * 1.5; 
-              return `M${sx},${sy} A${dr},${dr} 0 0,1 ${tx},${ty}`;
-            }
-          });
-          
-          nodeGroup.selectAll(".node-base").attr("cx", d => d.x).attr("cy", d => d.y);
-          labelGroup.selectAll(".node-label").attr("x", d => d.x + 16).attr("y", d => d.y + 4);
-        });
+      if (simulation) {
+        simulation.stop();
       }
 
-      const oldNodes = new Map(simulation.nodes().map(n => [n.id, n]));
-      graphData.nodes.forEach(n => {
-        if (oldNodes.has(n.id)) {
-          const old = oldNodes.get(n.id);
-          n.x = old.x; n.y = old.y; n.vx = old.vx; n.vy = old.vy;
-        }
+      simulation = d3.forceSimulation(activeGraphData.nodes)
+        .force("link", d3.forceLink(activeGraphData.links).id(d => d.id)
+          .distance(d => (d.source.folder === d.target.folder) ? 70 : 250)
+          .strength(d => (d.source.folder === d.target.folder) ? 1.0 : 0.3)
+        )
+        .force("charge", d3.forceManyBody().strength(-400))
+        .force("collide", d3.forceCollide(45))
+        .force("cluster", forceCluster)
+        .force("center", d3.forceCenter(width / 2, height / 2));
+
+      simulation.on("tick", () => {
+        linkGroup.selectAll(".link-line").attr("d", d => {
+          const dx = d.target.x - d.source.x, dy = d.target.y - d.source.y;
+          const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+          const padding = 13; 
+          const sx = d.source.x + (dx * padding / dist), sy = d.source.y + (dy * padding / dist);
+          const tx = d.target.x - (dx * padding / dist), ty = d.target.y - (dy * padding / dist);
+          if (d.source.folder === d.target.folder) return `M${sx},${sy} L${tx},${ty}`; 
+          return `M${sx},${sy} A${dist*1.5},${dist*1.5} 0 0,1 ${tx},${ty}`;
+        });
+        nodeGroup.selectAll(".node-base").attr("cx", d => d.x).attr("cy", d => d.y);
+        labelGroup.selectAll(".node-label").attr("x", d => d.x + 16).attr("y", d => d.y + 4);
       });
 
-      simulation.nodes(graphData.nodes);
-      simulation.force("link").links(graphData.links);
-
-      const links = linkGroup.selectAll(".link-line").data(graphData.links, d => `${d.source.id || d.source}-${d.target.id || d.target}`);
+      const links = linkGroup.selectAll(".link-line").data(activeGraphData.links, d => `${d.source.id || d.source}-${d.target.id || d.target}`);
       links.exit().remove();
       links.enter().append("path")
         .attr("class", "link-line")
@@ -319,7 +356,7 @@
         .attr("marker-end", "url(#arrowhead)")
         .merge(links);
 
-      const nodes = nodeGroup.selectAll(".node-base").data(graphData.nodes, d => d.id);
+      const nodes = nodeGroup.selectAll(".node-base").data(activeGraphData.nodes, d => d.id);
       nodes.exit().remove();
       nodes.enter().append("circle")
         .attr("id", d => `node-${safeId(d.id)}`)
@@ -330,101 +367,138 @@
           .on("end", (e, d) => { if (!e.active) simulation.alphaTarget(0); d.fx = null; d.fy = null; }))
         .merge(nodes)
         .on("mouseover", (event, d) => {
-          hoveredNodeId = d.id;
-          updateLegendHighlight();
+          hoveredNodeId = d.id; updateLegendHighlight();
           if (!lockedNodeId) { updateTooltip(d, event); highlightLineage(d.id); }
         }).on("mouseout", () => {
-          hoveredNodeId = null;
-          updateLegendHighlight();
+          hoveredNodeId = null; updateLegendHighlight();
           if (!lockedNodeId) { tooltip.style("visibility", "hidden"); resetHighlights(); }
         }).on("click", (event, d) => {
           if (lockedNodeId === d.id) {
-            lockedNodeId = null; 
-            tooltip.style("visibility", "hidden"); 
-            resetHighlights();
+            lockedNodeId = null; tooltip.style("visibility", "hidden"); resetHighlights();
           } else {
-            lockedNodeId = d.id; 
-            updateTooltip(d, event); 
-            highlightLineage(d.id);
+            lockedNodeId = d.id; updateTooltip(d, event); highlightLineage(d.id);
           }
           updateLegendHighlight();
+        }).on("dblclick", (event, d) => {
+          event.stopPropagation();
+          if (currentLayer === 'ARCHITECTURE') {
+            currentLayer = 'FILE';
+            activeGraphData = generateFileSubGraph(d);
+            lockedNodeId = null; tooltip.style("visibility", "hidden");
+            renderMainGraph(); updateLegend();
+          }
         });
 
-      const labels = labelGroup.selectAll(".node-label").data(graphData.nodes, d => d.id);
+      const labels = labelGroup.selectAll(".node-label").data(activeGraphData.nodes, d => d.id);
       labels.exit().remove();
       labels.enter().append("text").attr("class", "node-label").merge(labels).text(d => d.label);
 
       applyColors();
-      simulation.alpha(0.3).restart();
+      simulation.alpha(0.6).restart();
 
       if (lockedNodeId) {
-        const lockedNodeData = graphData.nodes.find(n => n.id === lockedNodeId);
-        if (lockedNodeData) {
-          updateTooltip(lockedNodeData); highlightLineage(lockedNodeId);
-        } else {
-          lockedNodeId = null; tooltip.style("visibility", "hidden"); resetHighlights();
-        }
+        const lockedNodeData = activeGraphData.nodes.find(n => n.id === lockedNodeId);
+        if (lockedNodeData) { updateTooltip(lockedNodeData); highlightLineage(lockedNodeId); }
       }
       applyEditorHighlight();
     }
 
     function applyColors() {
-      d3.selectAll(".node-base").style("fill", d => colorMode ? colorScale(d.folder) : "#0a0a0c");
+      // By setting fill to null when colorMode is off, the CSS variable takes over completely
+      d3.selectAll(".node-base").style("fill", d => colorMode ? colorScale(d.folder) : null);
     }
 
     function applyEditorHighlight() {
       d3.selectAll(".node-base").classed("node-editor-active", false);
       if (!currentEditorFile) return;
-      const targetNode = graphData.nodes.find(n => n.id === currentEditorFile);
-      if (targetNode) d3.select(`#node-${safeId(targetNode.id)}`).classed("node-editor-active", true);
+
+      if (currentLayer === 'ARCHITECTURE') {
+        const targetNode = activeGraphData.nodes.find(n => n.id === currentEditorFile);
+        if (targetNode) d3.select(`#node-${safeId(targetNode.id)}`).classed("node-editor-active", true);
+      } else if (currentLayer === 'FILE') {
+        const targetNode = activeGraphData.nodes.find(n => currentEditorLine >= n.lineno && currentEditorLine <= n.end_lineno);
+        if (targetNode) d3.select(`#node-${safeId(targetNode.id)}`).classed("node-editor-active", true);
+      }
     }
 
     function updateTooltip(d, event = null) {
       let content = `<div class="legend-title">${d.label}</div>`;
-      if (Object.keys(d.classes).length > 0) {
-        for (let [cls, methods] of Object.entries(d.classes)) {
-          content += `<div class="legend-class">class ${cls}</div>`;
-          methods.forEach(m => content += `<div class="legend-method">def ${m}()</div>`);
+      
+      if (currentLayer === 'ARCHITECTURE') {
+        if (Object.keys(d.classes).length > 0) {
+          for (let [cls, clsData] of Object.entries(d.classes)) {
+            content += `
+              <details open>
+                <summary class="legend-class">class ${cls}</summary>
+                <div style="padding-left:12px; margin-bottom:8px;">
+                  ${clsData.methods.map(m => `<div class="legend-method">def ${m.name}(${m.args.join(', ')}) -> ${m.returns}</div>`).join('')}
+                </div>
+              </details>`;
+          }
+        }
+        if (d.functions.length > 0) {
+          content += `<div style="margin-top:6px; color:#fff;">Independent:</div>`;
+          d.functions.forEach(f => {
+            content += `<div class="legend-func">def ${f.name}(${f.args.join(', ')}) -> ${f.returns}</div>`;
+          });
+        }
+      } 
+      else {
+        if (d.type === 'class') {
+           content += `<div>Class Wrapper</div>`;
+        } else {
+           content += `<div class="legend-func">Args: (${d.args.join(', ')})<br>Returns: ${d.returns}</div>`;
         }
       }
-      if (d.functions.length > 0) {
-        content += `<div style="margin-top:6px; color:#fff;">Independent:</div>`;
-        d.functions.forEach(f => content += `<div class="legend-func">def ${f}()</div>`);
-      }
+
       tooltip.html(content).style("visibility", "visible");
       if (event) tooltip.style("left", (event.pageX + 20) + "px").style("top", (event.pageY - 20) + "px");
     }
 
     function highlightLineage(startNodeId) {
       resetHighlights();
-      const visitedNodes = new Set([startNodeId]), visitedLinks = new Set(), queue = [startNodeId];
+      const visitedNodes = new Set([startNodeId]), visitedLinks = new Set();
       
-      while (queue.length > 0) {
-        const curr = queue.shift();
-        const dependencyLinks = graphData.links.filter(l => (l.target.id || l.target) === curr);
-        dependencyLinks.forEach(link => {
-          const sourceId = link.source.id || link.source;
-          visitedLinks.add(`link-${safeId(sourceId)}-${safeId(curr)}`);
-          if (!visitedNodes.has(sourceId)) { visitedNodes.add(sourceId); queue.push(sourceId); }
+      if (traceMode === 'DIRECT') {
+        // Direct Importers (Looks for files that imported this selected node)
+        // Link logic: target = importer, source = imported. Find where source == startNodeId
+        const importers = activeGraphData.links.filter(l => (l.source.id || l.source) === startNodeId);
+        importers.forEach(link => {
+          const targetId = link.target.id || link.target;
+          visitedLinks.add(`link-${safeId(startNodeId)}-${safeId(targetId)}`);
+          visitedNodes.add(targetId);
         });
+      } else {
+        // Deep Dependencies (Looks down the chain for files this node relies on)
+        // Link logic: Find where target == curr
+        const queue = [startNodeId];
+        while (queue.length > 0) {
+          const curr = queue.shift();
+          const dependencies = activeGraphData.links.filter(l => (l.target.id || l.target) === curr);
+          dependencies.forEach(link => {
+            const sourceId = link.source.id || link.source;
+            visitedLinks.add(`link-${safeId(sourceId)}-${safeId(curr)}`);
+            if (!visitedNodes.has(sourceId)) { visitedNodes.add(sourceId); queue.push(sourceId); }
+          });
+        }
       }
 
       visitedLinks.forEach(linkId => d3.select(`#${linkId}`).classed("link-active", true).attr("marker-end", "url(#arrowhead-active)"));
       const pathNames = [];
       visitedNodes.forEach(id => {
         d3.select(`#node-${safeId(id)}`).classed("node-active", true);
-        pathNames.push(graphData.nodes.find(n => n.id === id).label);
+        pathNames.push(activeGraphData.nodes.find(n => n.id === id).label);
       });
 
       d3.select("#hud-path").html(pathNames.join(" &bull; ")).classed("dim", false);
-      d3.select("#hud-title").text(lockedNodeId ? "TARGET LOCKED: DEPENDENCIES" : "DEPENDENCY TRACE");
+      d3.select("#hud-title").text(lockedNodeId ? `TARGET LOCKED: ${traceMode}` : `TRACE: ${traceMode}`);
     }
 
     function resetHighlights() {
       d3.selectAll(".link-line").classed("link-active", false).attr("marker-end", "url(#arrowhead)");
       d3.selectAll(".node-base").classed("node-active", false);
-      d3.select("#hud-path").html("IDLE // AWAITING TARGET").classed("dim", true);
-      d3.select("#hud-title").text("SYSTEM ARCHITECTURE");
+      d3.select("#hud-path").html(currentLayer === 'FILE' ? "DRILL DOWN ACTIVE" : "IDLE // AWAITING TARGET").classed("dim", true);
+      d3.select("#hud-title").text(currentLayer === 'FILE' ? "FILE LEVEL" : "SYSTEM ARCHITECTURE");
     }
   </script>
 </body>

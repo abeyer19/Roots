@@ -7,13 +7,11 @@ let currentPanel = undefined;
 
 function activate(context) {
   let disposable = vscode.commands.registerCommand('pyGraph.visualize', () => {
-
     if (currentPanel) {
       currentPanel.reveal(vscode.ViewColumn.Beside);
       return;
     }
 
-    // Automatically forces the panel to open in a split view
     currentPanel = vscode.window.createWebviewPanel(
       'pyDependencyGraph',
       'Architecture Visualizer',
@@ -31,11 +29,16 @@ function activate(context) {
     const workspaceFolders = vscode.workspace.workspaceFolders;
     const rootPath = workspaceFolders ? workspaceFolders[0].uri.fsPath : '';
 
-    // Standardized broadcast function for the active file
     const broadcastActiveFile = (editor) => {
       if (editor && editor.document.uri.scheme === 'file' && currentPanel && rootPath) {
         const relPath = path.relative(rootPath, editor.document.fileName);
-        currentPanel.webview.postMessage({ command: 'activeFileChanged', filename: relPath });
+        // Track the cursor line (1-indexed to match AST)
+        const activeLine = editor.selection.active.line + 1; 
+        currentPanel.webview.postMessage({ 
+            command: 'activeFileChanged', 
+            filename: relPath, 
+            line: activeLine 
+        });
       }
     };
 
@@ -54,7 +57,6 @@ function activate(context) {
           const parsed = JSON.parse(resultData);
           if (currentPanel) {
             currentPanel.webview.postMessage({ command: 'updateGraph', payload: parsed });
-            // Re-apply cursor highlight immediately after D3 redraws
             broadcastActiveFile(vscode.window.activeTextEditor);
           }
         } catch (err) {
@@ -70,15 +72,8 @@ function activate(context) {
     watcher.onDidCreate(runAnalysis);
     watcher.onDidDelete(runAnalysis);
 
-    // Triggers when switching tabs entirely
-    vscode.window.onDidChangeActiveTextEditor(editor => {
-      broadcastActiveFile(editor);
-    }, null, context.subscriptions);
-
-    // Triggers when clicking or moving the cursor inside an already open file
-    vscode.window.onDidChangeTextEditorSelection(event => {
-      broadcastActiveFile(event.textEditor);
-    }, null, context.subscriptions);
+    vscode.window.onDidChangeActiveTextEditor(editor => broadcastActiveFile(editor), null, context.subscriptions);
+    vscode.window.onDidChangeTextEditorSelection(event => broadcastActiveFile(event.textEditor), null, context.subscriptions);
 
     currentPanel.onDidDispose(() => {
       currentPanel = undefined;
@@ -90,5 +85,4 @@ function activate(context) {
 }
 
 function deactivate() {}
-
 module.exports = { activate, deactivate };

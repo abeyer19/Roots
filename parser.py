@@ -6,6 +6,32 @@ import warnings
 
 warnings.filterwarnings("ignore")
 
+def parse_args(node):
+    try:
+        return [a.arg for a in node.args.args]
+    except Exception:
+        return []
+
+def parse_returns(node):
+    try:
+        if getattr(node, 'returns', None):
+            if hasattr(ast, 'unparse'):
+                return ast.unparse(node.returns)
+            elif isinstance(node.returns, ast.Name):
+                return node.returns.id
+        return "None"
+    except Exception:
+        return "None"
+
+def get_func_info(node):
+    return {
+        "name": node.name,
+        "args": parse_args(node),
+        "returns": parse_returns(node),
+        "lineno": getattr(node, "lineno", 0),
+        "end_lineno": getattr(node, "end_lineno", getattr(node, "lineno", 0))
+    }
+
 def analyze_workspace(workspace_root):
     nodes = []
     edges = []
@@ -34,9 +60,17 @@ def analyze_workspace(workspace_root):
                         tree = ast.parse(f.read(), filename=rel_path)
                     for item in tree.body:
                         if isinstance(item, ast.ClassDef):
-                            file_metadata["classes"][item.name] = [m.name for m in item.body if isinstance(m, (ast.FunctionDef, ast.AsyncFunctionDef))]
+                            methods = []
+                            for m in item.body:
+                                if isinstance(m, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                                    methods.append(get_func_info(m))
+                            file_metadata["classes"][item.name] = {
+                                "methods": methods,
+                                "lineno": getattr(item, "lineno", 0),
+                                "end_lineno": getattr(item, "end_lineno", getattr(item, "lineno", 0))
+                            }
                         elif isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                            file_metadata["functions"].append(item.name)
+                            file_metadata["functions"].append(get_func_info(item))
                     nodes.append(file_metadata)
                 except Exception:
                     continue
@@ -57,7 +91,6 @@ def analyze_workspace(workspace_root):
                 elif isinstance(item, ast.ImportFrom):
                     level = getattr(item, 'level', 0)
                     base_mod = base_dir_parts[:]
-                    
                     if level > 0:
                         strip_count = level - 1
                         if strip_count > 0 and len(base_mod) >= strip_count:
@@ -75,7 +108,6 @@ def analyze_workspace(workspace_root):
                         target_id = file_map[target_mod]
                     elif target_mod.split(".")[0] in file_map:
                         target_id = file_map[target_mod.split(".")[0]]
-                    
                     if target_id and target_id != node["id"]:
                         edges.append({"source": target_id, "target": node["id"]})
         except Exception:
@@ -85,7 +117,8 @@ def analyze_workspace(workspace_root):
     for e in edges:
         in_degrees[e["target"]] = in_degrees.get(e["target"], 0) + 1
     
-    root_file = next((n["id"] for n in nodes if "Roots" in n["label"]), None)
+    # Try to map entry point to Roots.py
+    root_file = next((n["id"] for n in nodes if "Roots" in n["label"]), None) 
     if not root_file:
         sorted_roots = sorted(nodes, key=lambda n: in_degrees.get(n["id"], 0), reverse=True)
         root_file = sorted_roots[0]["id"] if sorted_roots else None
