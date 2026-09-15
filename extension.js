@@ -57,8 +57,16 @@ function activate(context) {
 
     const runAnalysis = () => {
       if (!workspaceFolders) return;
+      
+      // Extract configuration directly from VS Code user settings
+      const config = vscode.workspace.getConfiguration('roots');
+      const ignoredDirs = config.get('ignoredDirectories').join(',');
+      const allowedExts = config.get('allowedExtensions').join(',');
+      const allowedHidden = config.get('allowedHiddenFiles').join(',');
+
       const scriptPath = path.join(context.extensionPath, 'parser.py');
-      const pyProcess = spawn('python3', [scriptPath, rootPath]);
+      // Pass the configurations as string arguments to Python
+      const pyProcess = spawn('python3', [scriptPath, rootPath, ignoredDirs, allowedExts, allowedHidden]);
 
       let resultData = '';
       pyProcess.stdout.on('data', (data) => resultData += data.toString());
@@ -69,7 +77,6 @@ function activate(context) {
           if (!resultData.trim()) return;
           const parsed = JSON.parse(resultData);
           
-          // NEW: Update the global cache every time Python finishes a successful run
           cachedGraphData = parsed;
           
           if (currentPanel) {
