@@ -45,35 +45,31 @@ def get_func_info(node):
         "calls": extract_calls(node)
     }
 
-def analyze_workspace(workspace_root):
+def analyze_workspace(workspace_root, ignored_dirs_str, allowed_exts_str, allowed_hidden_str):
     nodes = []
     edges = []
     file_map = {}
     all_files = []
 
-    # --- 1. Universal Indexing & Filtering ---
-    # Directories we NEVER want to visualize
-    IGNORED_DIRS = {".git", "__pycache__", "venv", ".venv", "node_modules"}
-    
-    # File extensions that are just noise (docs, data, configs we don't map)
-    IGNORED_EXTS = {".txt", ".md", ".csv", ".json", ".log"}
-    
-    # Hidden files we DO want to see (bypasses the standard dot-file block)
-    ALLOWED_HIDDEN = {".env"}
+    # --- 1. Dynamic Allowlist Indexing ---
+    IGNORED_DIRS = set(ignored_dirs_str.split(',')) if ignored_dirs_str else set()
+    ALLOWED_EXTS = set(allowed_exts_str.split(',')) if allowed_exts_str else set()
+    ALLOWED_HIDDEN = set(allowed_hidden_str.split(',')) if allowed_hidden_str else set()
 
     for root, dirs, files in os.walk(workspace_root):
-        # Prune ignored directories in-place so os.walk doesn't even traverse them
+        # Prune ignored directories in-place
         dirs[:] = [d for d in dirs if not d.startswith('.') and d not in IGNORED_DIRS]
         
         for file in files:
-            # Check hidden file allowlist
+            # Check hidden file allowlist 
             if file.startswith('.') and file not in ALLOWED_HIDDEN:
                 continue
                 
-            # Check extension blocklist
-            ext = os.path.splitext(file)[1].lower()
-            if ext in IGNORED_EXTS:
+            # Strict extension checking
+            if not any(file.endswith(ext) for ext in ALLOWED_EXTS):
                 continue
+                
+            # ... [Rest of your parser logic remains exactly the same] ...
                 
             abs_path = os.path.join(root, file)
             rel_path = os.path.relpath(abs_path, workspace_root)
@@ -195,4 +191,10 @@ def analyze_workspace(workspace_root):
 
 if __name__ == "__main__":
     target_workspace = sys.argv[1] if len(sys.argv) > 1 else "."
-    print(json.dumps(analyze_workspace(target_workspace)))
+    
+    # Catch the command line arguments passed from extension.js
+    ignored_dirs = sys.argv[2] if len(sys.argv) > 2 else ".git,__pycache__,venv,.venv,node_modules"
+    allowed_exts = sys.argv[3] if len(sys.argv) > 3 else ".py,.json,.env"
+    allowed_hidden = sys.argv[4] if len(sys.argv) > 4 else ".env"
+    
+    print(json.dumps(analyze_workspace(target_workspace, ignored_dirs, allowed_exts, allowed_hidden)))
