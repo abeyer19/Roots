@@ -15,7 +15,7 @@ As project scope and codebase size increase over time, it becomes increasingly d
 ## Installation
 
 ### VS Code
-In VS Code, open the **Extensions** view (`Cmd+Shift+X` on macOS, `Ctrl+Shift+X` on Windows), search for Roots, and install. Open any Python project folder and press `Cmd+Shift+P` (`Ctrl+Shift+P` on Windows) to launch the command palette, type "Roots Visualizer" and hit enter.
+In VS Code, open the **Extensions** view (`Cmd+Shift+X` on macOS, `Ctrl+Shift+X` on Windows), search for Roots, and install. Open any Python project folder and press `Cmd+Shift+P` (`Ctrl+Shift+P` on Windows) to launch the command palette, type "Roots: Architecture Visualizer" and hit enter.
 
 ## Usage
 
