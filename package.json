@@ -1,13 +1,19 @@
 {
-  "name": "Roots",
+  "name": "roots",
   "displayName": "Roots",
-  "description": "VSCode extention for visualizing project structures, files, and dependancies.",
+  "description": "Interactive codebase architecture and dependency visualizer.",
   "version": "1.0.0",
   "engines": {
-    "vscode": "^1.75.0"
+    "vscode": "^1.80.0"
   },
+  "categories": [
+    "Visualization",
+    "Programming Languages"
+  ],
+  "activationEvents": [
+    "onCommand:pyGraph.visualize"
+  ],
   "main": "./extension.js",
-  "activationEvents": [],
   "contributes": {
     "commands": [
       {
@@ -20,18 +26,39 @@
       "properties": {
         "roots.ignoredDirectories": {
           "type": "array",
-          "default": [".git", "__pycache__", "venv", ".venv", "node_modules"],
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            ".git",
+            "__pycache__",
+            "venv",
+            ".venv",
+            "node_modules"
+          ],
           "description": "Directories to explicitly exclude from the architecture graph."
         },
         "roots.allowedExtensions": {
           "type": "array",
-          "default": [".py", ".json", ".env"],
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            ".py",
+            ".json",
+            ".env"
+          ],
           "description": "File extensions allowed to be processed and displayed in the graph."
         },
         "roots.allowedHiddenFiles": {
           "type": "array",
-          "default": [".env"],
-          "description": "Hidden files (starting with a dot) to explicitly bypass the hidden-file block."
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            ".env"
+          ],
+          "description": "Hidden files (prefixed with '.') explicitly permitted in the graph."
         }
       }
     }

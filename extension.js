@@ -15,7 +15,7 @@ function activate(context) {
 
     currentPanel = vscode.window.createWebviewPanel(
       'pyDependencyGraph',
-      'Architecture Visualizer',
+      'Roots Visualizer',
       vscode.ViewColumn.Beside, 
       {
         enableScripts: true,
@@ -58,15 +58,29 @@ function activate(context) {
     const runAnalysis = () => {
       if (!workspaceFolders) return;
       
-      // Extract configuration directly from VS Code user settings
+      // Extract configuration directly from VS Code user settings with fallback defaults
       const config = vscode.workspace.getConfiguration('roots');
-      const ignoredDirs = config.get('ignoredDirectories').join(',');
-      const allowedExts = config.get('allowedExtensions').join(',');
-      const allowedHidden = config.get('allowedHiddenFiles').join(',');
+
+      const ignoredDirs = (config.get('ignoredDirectories') || [
+        '.git', '__pycache__', 'venv', '.venv', 'node_modules'
+      ]).join(',');
+
+      const allowedExts = (config.get('allowedExtensions') || [
+        '.py', '.json', '.env'
+      ]).join(',');
+
+      const allowedHidden = (config.get('allowedHiddenFiles') || [
+        '.env'
+      ]).join(',');
 
       const scriptPath = path.join(context.extensionPath, 'parser.py');
-      // Pass the configurations as string arguments to Python
-      const pyProcess = spawn('python3', [scriptPath, rootPath, ignoredDirs, allowedExts, allowedHidden]);
+      const pyProcess = spawn('python3', [
+        scriptPath,
+        rootPath,
+        ignoredDirs,
+        allowedExts,
+        allowedHidden
+      ]);
 
       let resultData = '';
       pyProcess.stdout.on('data', (data) => resultData += data.toString());

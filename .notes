@@ -1,1 +1,8 @@
 TODO:
+    bugs:
+        - Cmd+T and Cmd+O appear in the settings box when I press the new shortcuts of Cmd+A and Cmd+I - this needs to be fixed to always show the correct names, it should be dynamic so I don't need to update in more places than once, could also be a state issue?
+        - remove 'Cmd+A' as this selects everything on the screen and is annoying, replace with 'Cmd+D'
+
+    ideas:
+        - This is going to be a stretch, but I have a feeling that allowing the user to choose/add/delete what dir's or files are allowed into the Directed Graph would be best for customer expierence. For example, it is kind of like using a .gitignore file, expect it should be stored as a .json config file, with a list of all the IGNORED_DIRS, IGNORED_EXTS, and ALLOWED_HIDDEN variables that are grabbed in the Python code. How can we go about implementing this into either the VSCode environment or elsewhere? I feel like other Extensions use a similar config method so lets try to go this.
+        - 
