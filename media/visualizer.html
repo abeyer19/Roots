@@ -131,7 +131,7 @@
         tooltip.style("visibility", "hidden");
         activeGraphData = mainGraphData;
         renderMainGraph();
-        updateLegend();
+        updateLegend(activeGraphData.nodes);
       }
     });
 
@@ -174,19 +174,23 @@
     d3.select("#color-toggle").on("click", function() {
       colorMode = !colorMode;
       d3.select(this).classed("btn-active", colorMode).text(colorMode ? "[ COLOR MAP: ON ]" : "[ COLOR MAP: OFF ]");
-      applyColors(); updateLegend(); updateLegendHighlight();
+      applyColors(); 
+      updateLegend(activeGraphData.nodes); 
+      updateLegendHighlight();
     });
 
     d3.select("#orphan-toggle").on("click", function() {
       inviteOrphansMode = !inviteOrphansMode;
       d3.select(this).classed("btn-active", inviteOrphansMode).text(inviteOrphansMode ? "[ INVITE ORPHANS: YES ]" : "[ INVITE ORPHANS: NO ]");
-      if (simulation) simulation.alpha(0.6).restart();
+      if (currentLayer === 'ARCHITECTURE') renderMainGraph();
     });
 
     d3.select("#trace-toggle").on("click", function() {
       traceMode = traceMode === 'DEEP' ? 'DIRECT' : 'DEEP';
       d3.select(this).text(traceMode === 'DEEP' ? "[ TRACE: DEEP DEPENDENCIES ]" : "[ TRACE: DIRECT IMPORTERS ]");
-      if (lockedNodeId) highlightLineage(lockedNodeId);
+      if (lockedNodeId && simulation) {
+        highlightLineage(lockedNodeId, simulation.force("link").links(), simulation.nodes());
+      }
     });
 
     window.addEventListener("message", (event) => {
@@ -209,15 +213,14 @@
       const degreeMap = new Map();
       activeGraphData.nodes.forEach(n => degreeMap.set(n.id, 0));
       activeGraphData.links.forEach(l => {
-        const s = l.source.id || l.source;
-        const t = l.target.id || l.target;
-        degreeMap.set(s, degreeMap.get(s) + 1);
-        degreeMap.set(t, degreeMap.get(t) + 1);
+        const sId = typeof l.source === 'object' ? l.source.id : l.source;
+        const tId = typeof l.target === 'object' ? l.target.id : l.target;
+        degreeMap.set(sId, degreeMap.get(sId) + 1);
+        degreeMap.set(tId, degreeMap.get(tId) + 1);
       });
       activeGraphData.nodes.forEach(n => n.isOrphan = degreeMap.get(n.id) === 0);
     }
 
-    // Refactored to map method-to-method interactions directly
     function generateFileSubGraph(fileData) {
       const subNodes = [];
       const subLinks = [];
@@ -236,7 +239,6 @@
 
       fileData.functions.forEach(f => addNode(`func_${f.name}`, f.name, 'None', f));
 
-      // Resolve internal method calls extracted by the AST parser
       subNodes.forEach(sourceNode => {
           if (sourceNode.calls) {
               sourceNode.calls.forEach(calledName => {
@@ -248,7 +250,6 @@
           }
       });
 
-      // Calculate orphans strictly for this file layer
       const degreeMap = new Map();
       subNodes.forEach(n => degreeMap.set(n.id, 0));
       subLinks.forEach(l => {
@@ -260,9 +261,9 @@
       return { nodes: subNodes, links: subLinks };
     }
 
-    function forceCluster(alpha) {
-      for (let i = 0; i < activeGraphData.nodes.length; ++i) {
-        const d = activeGraphData.nodes[i];
+    function forceCluster(nodesToRender, alpha) {
+      for (let i = 0; i < nodesToRender.length; ++i) {
+        const d = nodesToRender[i];
         if (d.isOrphan && !inviteOrphansMode) {
           d.vx -= (d.x - (width * 0.1)) * alpha * 0.1;
           d.vy -= (d.y - (height * 0.9)) * alpha * 0.1;
@@ -276,18 +277,17 @@
       }
     }
 
-    function updateLegend() {
+    function updateLegend(renderedNodes) {
       const legend = d3.select("#legend-panel");
-      if (!colorMode) { legend.style("display", "none"); return; }
+      if (!colorMode || !renderedNodes) { legend.style("display", "none"); return; }
       legend.style("display", "block");
       
-      // Toggle the legend title depending on the depth layer
       d3.select(".legend-title-main").text(currentLayer === 'ARCHITECTURE' ? "DIRECTORY MAP" : "CLASS MAP");
       
       const content = d3.select("#legend-content");
       content.selectAll("*").remove();
 
-      const folders = Array.from(new Set(activeGraphData.nodes.map(n => n.folder))).sort();
+      const folders = Array.from(new Set(renderedNodes.map(n => n.folder))).sort();
       folders.forEach(f => {
         const item = content.append("div").attr("class", "legend-row").attr("data-folder", f).style("display", "flex").style("align-items", "center").style("margin-top", "6px").style("transition", "all 0.3s ease");
         item.append("div").style("width", "10px").style("height", "10px").style("background-color", colorScale(f)).style("margin-right", "8px").style("border-radius", "2px");
@@ -325,32 +325,35 @@
 
     function renderMainGraph() {
       mapOrphans();
-      const activeNodes = activeGraphData.nodes.filter(n => !n.isOrphan || inviteOrphansMode);
-      const folders = Array.from(new Set(activeNodes.map(n => n.folder)));
+      
+      // FIX: Pass all nodes and links directly to D3. 
+      // Do not filter out orphans; let the forceCluster physics handle their location.
+      let renderNodes = activeGraphData.nodes;
+      let renderLinks = activeGraphData.links;
+
+      const folders = Array.from(new Set(renderNodes.map(n => n.folder)));
       folders.forEach((f, i) => {
         const angle = (i / folders.length) * 2 * Math.PI;
         folderCenters[f] = { x: width / 2 + Math.cos(angle) * 250, y: height / 2 + Math.sin(angle) * 250 };
       });
 
-      activeGraphData.nodes.forEach(n => {
+      renderNodes.forEach(n => {
         if (n.x === undefined) {
           const center = (n.isOrphan && !inviteOrphansMode) ? {x: width * 0.1, y: height * 0.9} : folderCenters[n.folder] || {x: width/2, y: height/2};
           n.x = center.x + (Math.random() * 40 - 20); n.y = center.y + (Math.random() * 40 - 20);
         }
       });
 
-      if (simulation) {
-        simulation.stop();
-      }
+      if (simulation) simulation.stop();
 
-      simulation = d3.forceSimulation(activeGraphData.nodes)
-        .force("link", d3.forceLink(activeGraphData.links).id(d => d.id)
+      simulation = d3.forceSimulation(renderNodes)
+        .force("link", d3.forceLink(renderLinks).id(d => d.id)
           .distance(d => (d.source.folder === d.target.folder) ? 70 : 250)
           .strength(d => (d.source.folder === d.target.folder) ? 1.0 : 0.3)
         )
         .force("charge", d3.forceManyBody().strength(-400))
         .force("collide", d3.forceCollide(45))
-        .force("cluster", forceCluster)
+        .force("cluster", (alpha) => forceCluster(renderNodes, alpha))
         .force("center", d3.forceCenter(width / 2, height / 2));
 
       simulation.on("tick", () => {
@@ -367,15 +370,15 @@
         labelGroup.selectAll(".node-label").attr("x", d => d.x + 16).attr("y", d => d.y + 4);
       });
 
-      const links = linkGroup.selectAll(".link-line").data(activeGraphData.links, d => `${d.source.id || d.source}-${d.target.id || d.target}`);
+      const links = linkGroup.selectAll(".link-line").data(renderLinks, d => `${typeof d.source === 'object' ? d.source.id : d.source}-${typeof d.target === 'object' ? d.target.id : d.target}`);
       links.exit().remove();
       links.enter().append("path")
         .attr("class", "link-line")
-        .attr("id", d => `link-${safeId(d.source.id || d.source)}-${safeId(d.target.id || d.target)}`)
+        .attr("id", d => `link-${safeId(typeof d.source === 'object' ? d.source.id : d.source)}-${safeId(typeof d.target === 'object' ? d.target.id : d.target)}`)
         .attr("marker-end", "url(#arrowhead)")
         .merge(links);
 
-      const nodes = nodeGroup.selectAll(".node-base").data(activeGraphData.nodes, d => d.id);
+      const nodes = nodeGroup.selectAll(".node-base").data(renderNodes, d => d.id);
       nodes.exit().remove();
       nodes.enter().append("circle")
         .attr("id", d => `node-${safeId(d.id)}`)
@@ -387,7 +390,7 @@
         .merge(nodes)
         .on("mouseover", (event, d) => {
           hoveredNodeId = d.id; updateLegendHighlight();
-          if (!lockedNodeId) { updateTooltip(d, event); highlightLineage(d.id); }
+          if (!lockedNodeId) { updateTooltip(d, event); highlightLineage(d.id, renderLinks, renderNodes); }
         }).on("mouseout", () => {
           hoveredNodeId = null; updateLegendHighlight();
           if (!lockedNodeId) { tooltip.style("visibility", "hidden"); resetHighlights(); }
@@ -395,7 +398,7 @@
           if (lockedNodeId === d.id) {
             lockedNodeId = null; tooltip.style("visibility", "hidden"); resetHighlights();
           } else {
-            lockedNodeId = d.id; updateTooltip(d, event); highlightLineage(d.id);
+            lockedNodeId = d.id; updateTooltip(d, event); highlightLineage(d.id, renderLinks, renderNodes);
           }
           updateLegendHighlight();
         }).on("dblclick", (event, d) => {
@@ -404,20 +407,22 @@
             currentLayer = 'FILE';
             activeGraphData = generateFileSubGraph(d);
             lockedNodeId = null; tooltip.style("visibility", "hidden");
-            renderMainGraph(); updateLegend();
+            renderMainGraph();
           }
         });
 
-      const labels = labelGroup.selectAll(".node-label").data(activeGraphData.nodes, d => d.id);
+      const labels = labelGroup.selectAll(".node-label").data(renderNodes, d => d.id);
       labels.exit().remove();
       labels.enter().append("text").attr("class", "node-label").merge(labels).text(d => d.label);
 
       applyColors();
+      updateLegend(renderNodes);
       simulation.alpha(0.6).restart();
 
       if (lockedNodeId) {
-        const lockedNodeData = activeGraphData.nodes.find(n => n.id === lockedNodeId);
-        if (lockedNodeData) { updateTooltip(lockedNodeData); highlightLineage(lockedNodeId); }
+        const lockedNodeData = renderNodes.find(n => n.id === lockedNodeId);
+        if (lockedNodeData) { updateTooltip(lockedNodeData); highlightLineage(lockedNodeId, renderLinks, renderNodes); }
+        else { lockedNodeId = null; resetHighlights(); }
       }
       applyEditorHighlight();
     }
@@ -446,7 +451,6 @@
         if (Object.keys(d.classes).length > 0) {
           for (let [cls, clsData] of Object.entries(d.classes)) {
             const stateKey = `${d.id}-${cls}`;
-            // Use state memory to check if dropdown should be collapsed. Defaults to open (true).
             const isOpen = tooltipState[stateKey] !== false ? 'open' : '';
             
             content += `
@@ -471,7 +475,6 @@
       tooltip.html(content).style("visibility", "visible");
       if (event) tooltip.style("left", (event.pageX + 20) + "px").style("top", (event.pageY - 20) + "px");
 
-      // Attach event listeners to the newly rendered details elements to save toggle states
       tooltip.node().querySelectorAll("details").forEach(det => {
         det.addEventListener("toggle", (e) => {
           tooltipState[e.target.getAttribute("data-key")] = e.target.open;
@@ -479,14 +482,17 @@
       });
     }
 
-    function highlightLineage(startNodeId) {
+    function highlightLineage(startNodeId, activeLinks, activeNodes) {
       resetHighlights();
       const visitedNodes = new Set([startNodeId]), visitedLinks = new Set();
       
       if (traceMode === 'DIRECT') {
-        const importers = activeGraphData.links.filter(l => (l.source.id || l.source) === startNodeId);
+        const importers = activeLinks.filter(l => {
+          const sId = typeof l.source === 'object' ? l.source.id : l.source;
+          return sId === startNodeId;
+        });
         importers.forEach(link => {
-          const targetId = link.target.id || link.target;
+          const targetId = typeof link.target === 'object' ? link.target.id : link.target;
           visitedLinks.add(`link-${safeId(startNodeId)}-${safeId(targetId)}`);
           visitedNodes.add(targetId);
         });
@@ -494,9 +500,12 @@
         const queue = [startNodeId];
         while (queue.length > 0) {
           const curr = queue.shift();
-          const dependencies = activeGraphData.links.filter(l => (l.target.id || l.target) === curr);
+          const dependencies = activeLinks.filter(l => {
+            const tId = typeof l.target === 'object' ? l.target.id : l.target;
+            return tId === curr;
+          });
           dependencies.forEach(link => {
-            const sourceId = link.source.id || link.source;
+            const sourceId = typeof link.source === 'object' ? link.source.id : link.source;
             visitedLinks.add(`link-${safeId(sourceId)}-${safeId(curr)}`);
             if (!visitedNodes.has(sourceId)) { visitedNodes.add(sourceId); queue.push(sourceId); }
           });
@@ -507,7 +516,8 @@
       const pathNames = [];
       visitedNodes.forEach(id => {
         d3.select(`#node-${safeId(id)}`).classed("node-active", true);
-        pathNames.push(activeGraphData.nodes.find(n => n.id === id).label);
+        const n = activeNodes.find(n => n.id === id);
+        if (n) pathNames.push(n.label);
       });
 
       d3.select("#hud-path").html(pathNames.join(" &bull; ")).classed("dim", false);
