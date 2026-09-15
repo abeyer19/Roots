@@ -14,10 +14,7 @@ As project scope and codebase size increase over time, it becomes increasingly d
 
 ## Installation:
 #### VSCode
-Open Extensions and download...
-
-#### GitHub
-Clone repo...F5...open
+In VSCode, open the **Extentions** view 'Cmd+Shift+X' (Windows: 'Ctrl+Shift+X'), search for Roots, and install. Open any Python project folder and press 'Cmd+Shift+P' (Windows: 'Ctrl+Shift+P') to launch command palette, type "Show Roots" and hit enter.
 
 ## Usage:
 #### Interact
@@ -37,5 +34,3 @@ This project was developed using a modern, AI-assisted architecture model. Opera
 
 ## Future Work & Collaboration:
 Collaboration is welcome through issues raised or reviews written for bugs found or potential improvements to the tool.
-
-Future work consists of expanding to more programming languages...

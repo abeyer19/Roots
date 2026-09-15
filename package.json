@@ -1,7 +1,7 @@
 {
-  "name": "python-dependency-graph",
-  "displayName": "Python Dependency Visualizer",
-  "description": "Dynamic Tony Stark holographic dependency graph",
+  "name": "Roots",
+  "displayName": "Roots",
+  "description": "VSCode extention for visualizing project structures, files, and dependancies.",
   "version": "0.2.0",
   "engines": {
     "vscode": "^1.75.0"
@@ -12,7 +12,7 @@
     "commands": [
       {
         "command": "pyGraph.visualize",
-        "title": "Show Holographic Architecture Graph"
+        "title": "Show Roots"
       }
     ]
   }
