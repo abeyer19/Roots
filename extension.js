@@ -4,6 +4,7 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 
 let currentPanel = undefined;
+let cachedGraphData = null; // NEW: Global cache for cross-window persistence
 
 function activate(context) {
   let disposable = vscode.commands.registerCommand('pyGraph.visualize', () => {
@@ -32,7 +33,6 @@ function activate(context) {
     const broadcastActiveFile = (editor) => {
       if (editor && editor.document.uri.scheme === 'file' && currentPanel && rootPath) {
         const relPath = path.relative(rootPath, editor.document.fileName);
-        // Track the cursor line (1-indexed to match AST)
         const activeLine = editor.selection.active.line + 1; 
         currentPanel.webview.postMessage({ 
             command: 'activeFileChanged', 
@@ -41,6 +41,19 @@ function activate(context) {
         });
       }
     };
+
+    // NEW: Listen for window drags, tab switches, and panel visibility changes
+    currentPanel.onDidChangeViewState(
+      e => {
+        // Instantly re-inject the cached data when the panel respawns in a new window
+        if (e.webviewPanel.visible && cachedGraphData) {
+          currentPanel.webview.postMessage({ command: 'updateGraph', payload: cachedGraphData });
+          broadcastActiveFile(vscode.window.activeTextEditor);
+        }
+      },
+      null,
+      context.subscriptions
+    );
 
     const runAnalysis = () => {
       if (!workspaceFolders) return;
@@ -55,8 +68,12 @@ function activate(context) {
         try {
           if (!resultData.trim()) return;
           const parsed = JSON.parse(resultData);
+          
+          // NEW: Update the global cache every time Python finishes a successful run
+          cachedGraphData = parsed;
+          
           if (currentPanel) {
-            currentPanel.webview.postMessage({ command: 'updateGraph', payload: parsed });
+            currentPanel.webview.postMessage({ command: 'updateGraph', payload: cachedGraphData });
             broadcastActiveFile(vscode.window.activeTextEditor);
           }
         } catch (err) {
