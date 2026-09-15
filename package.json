@@ -2,7 +2,7 @@
   "name": "Roots",
   "displayName": "Roots",
   "description": "VSCode extention for visualizing project structures, files, and dependancies.",
-  "version": "0.2.0",
+  "version": "1.0.0",
   "engines": {
     "vscode": "^1.75.0"
   },
@@ -12,8 +12,28 @@
     "commands": [
       {
         "command": "pyGraph.visualize",
-        "title": "Show Roots"
+        "title": "Roots Visualizer"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "Roots Visualizer",
+      "properties": {
+        "roots.ignoredDirectories": {
+          "type": "array",
+          "default": [".git", "__pycache__", "venv", ".venv", "node_modules"],
+          "description": "Directories to explicitly exclude from the architecture graph."
+        },
+        "roots.allowedExtensions": {
+          "type": "array",
+          "default": [".py", ".json", ".env"],
+          "description": "File extensions allowed to be processed and displayed in the graph."
+        },
+        "roots.allowedHiddenFiles": {
+          "type": "array",
+          "default": [".env"],
+          "description": "Hidden files (starting with a dot) to explicitly bypass the hidden-file block."
+        }
+      }
+    }
   }
 }
