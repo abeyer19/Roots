@@ -9,6 +9,7 @@
       --text-main: #d4d4d4;
       --link-idle: rgba(255, 255, 255, 0.15);
       --panel-bg: rgba(5, 7, 10, 0.9);
+      --panel-bg-alpha: rgba(5, 7, 10, 0.85);
       --panel-border: rgba(255, 255, 255, 0.2);
       --node-base: #0a0a0c;
     }
@@ -18,6 +19,7 @@
       --text-main: #b7cae6;
       --link-idle: #346488;
       --panel-bg: #2c3746;
+      --panel-bg-alpha: rgba(44, 55, 70, 0.85);
       --panel-border: #346488;
       --node-base: #1a222d;
     }
@@ -28,21 +30,14 @@
     .glow { filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.4)); }
     .node-base { fill: var(--node-base); stroke: #e0e0e0; stroke-width: 1.5px; cursor: pointer; transition: fill 0.3s; }
     .node-active { fill: #ff2a5f !important; stroke: #fff !important; filter: drop-shadow(0 0 8px rgba(255, 42, 95, 0.8)); }
-    /* Golden cursor tracking strictly protected */
     .node-editor-active { fill: #ffb703 !important; stroke: #fff !important; filter: drop-shadow(0 0 10px rgba(255, 183, 3, 0.9)); }
     
     .link-line { stroke: var(--link-idle); stroke-width: 1.5px; fill: none; transition: stroke 0.2s; }
     .link-active { stroke: #ff2a5f; stroke-width: 2.5px; }
     
-    .node-label {
-      fill: #e0e0e0; stroke: var(--bg-color); stroke-width: 4px;
-      paint-order: stroke fill; font-size: 11px; pointer-events: none;
-    }
+    .node-label { fill: #e0e0e0; stroke: var(--bg-color); stroke-width: 4px; paint-order: stroke fill; font-size: 11px; pointer-events: none; }
 
-    .panel-box {
-      position: absolute; padding: 15px; background: var(--panel-bg);
-      border: 1px solid var(--panel-border); z-index: 10;
-    }
+    .panel-box { position: absolute; padding: 15px; background: var(--panel-bg); border: 1px solid var(--panel-border); z-index: 10; }
     #hud-panel { top: 16px; left: 16px; width: 350px; border-left: 4px solid #e0e0e0; pointer-events: auto; }
     #legend-panel { top: 16px; right: 16px; width: 200px; border-right: 4px solid #e0e0e0; pointer-events: none; display: none; }
 
@@ -51,18 +46,12 @@
     .dim { color: var(--text-main); opacity: 0.6; }
     
     .btn-group { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
-    .hud-btn {
-      font-size: 10px; color: var(--text-main); border: 1px solid var(--panel-border);
-      padding: 4px 8px; cursor: pointer; user-select: none; transition: all 0.2s;
-    }
+    .hud-btn { font-size: 10px; color: var(--text-main); border: 1px solid var(--panel-border); padding: 4px 8px; cursor: pointer; user-select: none; transition: all 0.2s; }
     .hud-btn:hover { background: rgba(255, 255, 255, 0.1); color: #fff; border-color: #fff; }
     .btn-active { color: #000; background: #e0e0e0; border-color: #e0e0e0; }
     
-    #tooltip {
-      position: absolute; visibility: hidden; background: var(--panel-bg);
-      border: 1px solid var(--panel-border); padding: 12px; font-size: 12px; z-index: 1000;
-      pointer-events: auto; max-height: 400px; overflow-y: auto; max-width: 400px;
-    }
+    /* Updated Opacity */
+    #tooltip { position: absolute; visibility: hidden; background: var(--panel-bg-alpha); border: 1px solid var(--panel-border); padding: 12px; font-size: 12px; z-index: 1000; pointer-events: auto; max-height: 400px; overflow-y: auto; max-width: 400px; }
     .legend-title { font-size: 14px; font-weight: bold; color: #fff; margin-bottom: 6px; }
     .legend-class { color: #e0e0e0; font-weight: bold; cursor: pointer; user-select: none; margin-top: 6px; }
     .legend-method { margin-left: 12px; color: #888; font-family: monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -76,12 +65,13 @@
   <div id="hud-panel" class="panel-box">
     <div id="hud-title">SYSTEM ARCHITECTURE</div>
     <div id="hud-path" class="dim">IDLE // AWAITING TARGET</div>
-    <div class="btn-group">
-      <div id="theme-toggle" class="hud-btn">[ THEME: DARK ]</div>
-      <div id="color-toggle" class="hud-btn">[ COLOR MAP: OFF ]</div>
-      <div id="orphan-toggle" class="hud-btn">[ INVITE ORPHANS: NO ]</div>
-      <div id="trace-toggle" class="hud-btn">[ TRACE: DEEP DEPENDENCIES ]</div>
+    <div id="settings-wrapper" class="btn-group">
+      <div id="theme-toggle" class="hud-btn">[ THEME: DARK ] (Cmd+V)</div>
+      <div id="color-toggle" class="hud-btn">[ COLOR MAP: OFF ] (Cmd+C)</div>
+      <div id="orphan-toggle" class="hud-btn">[ INVITE ORPHANS: NO ] (Cmd+I)</div>
+      <div id="trace-toggle" class="hud-btn">[ TRACE: DEEP DEPENDENCIES ] (Cmd+D)</div>
     </div>
+    <div id="collapse-toggle" class="hud-btn" style="margin-top: 8px;">[ SETTINGS: COLLAPSE ] (Cmd+Shift+Space)</div>
   </div>
   
   <div id="legend-panel" class="panel-box">
@@ -114,6 +104,15 @@
     const nodeGroup = svg.select("#node-layer");
     const labelGroup = svg.select("#label-layer");
     const tooltip = d3.select("#tooltip");
+
+    // Single Source of Truth for Keyboard Shortcuts
+    const UI_SHORTCUTS = {
+      theme: 'Cmd+V',
+      color: 'Cmd+C',
+      orphan: 'Cmd+I',
+      trace: 'Cmd+D',
+      collapse: 'Cmd+Shift+Space'
+    };
     
     const zoomGroup = svg.append("g");
     zoomGroup.node().appendChild(linkGroup.node());
@@ -128,10 +127,12 @@
       if (currentLayer === 'FILE') {
         currentLayer = 'ARCHITECTURE';
         lockedNodeId = null;
+        currentDrillDownFile = null;
         tooltip.style("visibility", "hidden");
         activeGraphData = mainGraphData;
         renderMainGraph();
         updateLegend(activeGraphData.nodes);
+        resetHighlights(); // Ensures HUD resets properly
       }
     });
 
@@ -143,16 +144,16 @@
     let hoveredNodeId = null;
     let currentEditorFile = null;
     let currentEditorLine = null;
+    let currentDrillDownFile = null; // Tracks filename for HUD
     
     let folderCenters = {};
     let colorMode = false;
     let inviteOrphansMode = false;
     let traceMode = 'DEEP'; 
     let theme = 'DARK'; 
+    let settingsCollapsed = false;
     
-    // Persistent Tooltip Memory Dictionary
     let tooltipState = {};
-    
     let simulation;
     const safeId = (str) => str.replace(/[^a-zA-Z0-9]/g, '_');
 
@@ -163,17 +164,37 @@
     ];
     const colorScale = d3.scaleOrdinal(vividColors);
 
+    // Keyboard Shortcuts Listener
+    window.addEventListener('keydown', (e) => {
+      if (e.metaKey || e.ctrlKey) {
+        switch(e.key.toLowerCase()) {
+          case 'c': d3.select("#color-toggle").dispatch('click'); e.preventDefault(); break;
+          case 'i': d3.select("#orphan-toggle").dispatch('click'); e.preventDefault(); break;
+          case 'd': d3.select("#trace-toggle").dispatch('click'); e.preventDefault(); break;
+          case 'v': d3.select("#theme-toggle").dispatch('click'); e.preventDefault(); break;
+          case ' ': d3.select("#collapse-toggle").dispatch('click'); e.preventDefault(); break; 
+        }
+      }
+    });
+
+    // UI Toggles using dynamic state variables
+    d3.select("#collapse-toggle").on("click", function() {
+      settingsCollapsed = !settingsCollapsed;
+      d3.select("#settings-wrapper").style("display", settingsCollapsed ? "none" : "flex");
+      d3.select(this).text(settingsCollapsed ? `[ SETTINGS: EXPAND ] (${UI_SHORTCUTS.collapse})` : `[ SETTINGS: COLLAPSE ] (${UI_SHORTCUTS.collapse})`);
+    });
+
     d3.select("#theme-toggle").on("click", function() {
       theme = theme === 'DARK' ? 'MAVEN' : 'DARK';
       d3.select(document.body).attr("data-theme", theme === 'MAVEN' ? 'maven' : 'dark');
-      d3.select(this).text(`[ THEME: ${theme} ]`);
+      d3.select(this).text(`[ THEME: ${theme} ] (${UI_SHORTCUTS.theme})`);
       applyColors();
       if(simulation) simulation.alpha(0.1).restart();
     });
 
     d3.select("#color-toggle").on("click", function() {
       colorMode = !colorMode;
-      d3.select(this).classed("btn-active", colorMode).text(colorMode ? "[ COLOR MAP: ON ]" : "[ COLOR MAP: OFF ]");
+      d3.select(this).classed("btn-active", colorMode).text(colorMode ? `[ COLOR MAP: ON ] (${UI_SHORTCUTS.color})` : `[ COLOR MAP: OFF ] (${UI_SHORTCUTS.color})`);
       applyColors(); 
       updateLegend(activeGraphData.nodes); 
       updateLegendHighlight();
@@ -181,13 +202,13 @@
 
     d3.select("#orphan-toggle").on("click", function() {
       inviteOrphansMode = !inviteOrphansMode;
-      d3.select(this).classed("btn-active", inviteOrphansMode).text(inviteOrphansMode ? "[ INVITE ORPHANS: YES ]" : "[ INVITE ORPHANS: NO ]");
-      if (currentLayer === 'ARCHITECTURE') renderMainGraph();
+      d3.select(this).classed("btn-active", inviteOrphansMode).text(inviteOrphansMode ? `[ INVITE ORPHANS: YES ] (${UI_SHORTCUTS.orphan})` : `[ INVITE ORPHANS: NO ] (${UI_SHORTCUTS.orphan})`);
+      renderMainGraph(); 
     });
 
     d3.select("#trace-toggle").on("click", function() {
       traceMode = traceMode === 'DEEP' ? 'DIRECT' : 'DEEP';
-      d3.select(this).text(traceMode === 'DEEP' ? "[ TRACE: DEEP DEPENDENCIES ]" : "[ TRACE: DIRECT IMPORTERS ]");
+      d3.select(this).text(traceMode === 'DEEP' ? `[ TRACE: DEEP DEPENDENCIES ] (${UI_SHORTCUTS.trace})` : `[ TRACE: DIRECT IMPORTERS ] (${UI_SHORTCUTS.trace})`);
       if (lockedNodeId && simulation) {
         highlightLineage(lockedNodeId, simulation.force("link").links(), simulation.nodes());
       }
@@ -244,7 +265,8 @@
               sourceNode.calls.forEach(calledName => {
                   const targetNode = subNodes.find(n => n.label === calledName);
                   if (targetNode && targetNode.id !== sourceNode.id) {
-                      subLinks.push({ source: sourceNode.id, target: targetNode.id });
+                      // SWAPPED source and target here to reverse arrow direction
+                      subLinks.push({ source: targetNode.id, target: sourceNode.id });
                   }
               });
           }
@@ -326,8 +348,6 @@
     function renderMainGraph() {
       mapOrphans();
       
-      // FIX: Pass all nodes and links directly to D3. 
-      // Do not filter out orphans; let the forceCluster physics handle their location.
       let renderNodes = activeGraphData.nodes;
       let renderLinks = activeGraphData.links;
 
@@ -405,9 +425,11 @@
           event.stopPropagation();
           if (currentLayer === 'ARCHITECTURE') {
             currentLayer = 'FILE';
+            currentDrillDownFile = d.label; // Store filename for HUD
             activeGraphData = generateFileSubGraph(d);
             lockedNodeId = null; tooltip.style("visibility", "hidden");
             renderMainGraph();
+            resetHighlights(); // Force text update
           }
         });
 
@@ -423,6 +445,8 @@
         const lockedNodeData = renderNodes.find(n => n.id === lockedNodeId);
         if (lockedNodeData) { updateTooltip(lockedNodeData); highlightLineage(lockedNodeId, renderLinks, renderNodes); }
         else { lockedNodeId = null; resetHighlights(); }
+      } else {
+        resetHighlights(); // Ensures proper UI load text
       }
       applyEditorHighlight();
     }
@@ -515,20 +539,32 @@
       visitedLinks.forEach(linkId => d3.select(`#${linkId}`).classed("link-active", true).attr("marker-end", "url(#arrowhead-active)"));
       const pathNames = [];
       visitedNodes.forEach(id => {
-        d3.select(`#node-${safeId(id)}`).classed("node-active", true);
-        const n = activeNodes.find(n => n.id === id);
-        if (n) pathNames.push(n.label);
+        if (id !== startNodeId) {
+            d3.select(`#node-${safeId(id)}`).classed("node-active", true);
+            const n = activeNodes.find(n => n.id === id);
+            if (n) pathNames.push(n.label);
+        }
       });
+      d3.select(`#node-${safeId(startNodeId)}`).classed("node-active", true);
 
-      d3.select("#hud-path").html(pathNames.join(" &bull; ")).classed("dim", false);
+      // Formatting Trace Text with arrows
+      const startLabel = activeNodes.find(n => n.id === startNodeId)?.label || "Target";
+      if (pathNames.length > 0) {
+          const pathString = pathNames.join(" &bull; ");
+          const traceText = traceMode === 'DIRECT' ? `${startLabel} &rarr; ${pathString}` : `${pathString} &larr; ${startLabel}`;
+          d3.select("#hud-path").html(traceText).classed("dim", false);
+      } else {
+          d3.select("#hud-path").html(`${startLabel} (Isolated)`).classed("dim", false);
+      }
+
       d3.select("#hud-title").text(lockedNodeId ? `TARGET LOCKED: ${traceMode}` : `TRACE: ${traceMode}`);
     }
 
     function resetHighlights() {
       d3.selectAll(".link-line").classed("link-active", false).attr("marker-end", "url(#arrowhead)");
       d3.selectAll(".node-base").classed("node-active", false);
+      d3.select("#hud-title").text(currentLayer === 'FILE' ? `FILE LEVEL: ${currentDrillDownFile || ''}` : "SYSTEM ARCHITECTURE");
       d3.select("#hud-path").html(currentLayer === 'FILE' ? "DRILL DOWN ACTIVE" : "IDLE // AWAITING TARGET").classed("dim", true);
-      d3.select("#hud-title").text(currentLayer === 'FILE' ? "FILE LEVEL" : "SYSTEM ARCHITECTURE");
     }
   </script>
 </body>
