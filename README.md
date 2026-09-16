@@ -15,7 +15,7 @@ As project scope and codebase size increase over time, it becomes increasingly d
 ## Installation
 
 ### VS Code
-In VS Code, open the **Extensions** view (`Cmd+Shift+X` on macOS, `Ctrl+Shift+X` on Windows), search for Roots, and install. Open any Python project folder and press `Cmd+Shift+P` (`Ctrl+Shift+P` on Windows) to launch the command palette, type "Roots: Architecture Visualizer" and hit enter.
+In VS Code, open the **Extensions** view (`Cmd+Shift+X` on macOS, `Ctrl+Shift+X` on Windows), search for "Roots: Architecture Visualizer", and install. Open any Python project folder and press `Cmd+Shift+P` (`Ctrl+Shift+P` on Windows) to launch the command palette, type "Roots: Architecture Visualizer" and hit enter.
 
 ## Usage
 
@@ -36,7 +36,7 @@ Roots allows you to customize directory filtering and file ingestion directly th
 
 **Option 1: Via the Settings UI**
 1. Open Settings (`Cmd+,` on macOS or `Ctrl+,` on Windows/Linux).
-2. Search for **Roots Visualizer**.
+2. Search for **"Roots: Architecture Visualizer"**.
 3. Add or remove items from the respective filter lists:
    * **Ignored Directories:** Folders skipped during workspace scanning (e.g., `venv`, `__pycache__`, `.git`).
    * **Allowed Extensions:** File types parsed into the graph (defaults to `.py`, `.json`, `.env`).
