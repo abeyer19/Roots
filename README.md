@@ -67,6 +67,14 @@ To commit project-specific visualization rules to your repository, add the follo
 }
 ```
 
+## Testing
+
+To run the Python parser test suite:
+
+```bash
+python3 -m unittest test_parser.py
+```
+
 ## System Architecture & AI Collaboration:
 This project was developed using a modern, AI-assisted architecture model. Operating as the Lead Systems Architect, I defined the core logic, UI/UX guardrails, and Breadth-First Search dependency tracing requirements. The underlying syntax and boilerplate were generated iteratively via LLM (AI) collaboration. This approach allowed a complex, hybrid Python/D3.js system to be rapidly prototyped and deployed, demonstrating the power of human-led system orchestration combined with AI execution.
 

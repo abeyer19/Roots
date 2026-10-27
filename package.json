@@ -20,6 +20,9 @@
     "onCommand:pyGraph.visualize"
   ],
   "main": "./extension.js",
+  "scripts": {
+    "test:python": "python3 -m unittest test_parser.py"
+  },
   "contributes": {
     "commands": [
       {
